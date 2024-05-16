@@ -1,0 +1,37 @@
+{
+    "version": 2,
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Clang 16.0.6 x86_64-redhat-linux-gnu",
+            "description": "Using compilers: C = /usr/lib64/ccache/clang, CXX = /usr/lib64/ccache/clang++",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "_CMAKE_C_COMPILER": "clang",
+                "_CMAKE_CXX_COMPILER": "clang++",
+                "_CMAKE_CUDA_ARCHITECTURES": "native",
+                "_CMAKE_CUDA_COMPILER" :  "/usr/local/cuda/bin/nvcc",
+                "_CMAKE_CUDA_HOST_COMPILER" : "clang++"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "description": "Using compilers: C = /usr/lib64/ccache/clang, CXX = /usr/lib64/ccache/clang++",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/${presetName}",
+                "CMAKE_BUILD_TYPE": "Release",
+                "_CMAKE_C_COMPILER": "clang",
+                "_CMAKE_CXX_COMPILER": "clang++",
+                "_CMAKE_CUDA_ARCHITECTURES": "native",
+                "_CMAKE_CUDA_COMPILER" :  "/usr/local/cuda/bin/nvcc",
+                "_CMAKE_CUDA_HOST_COMPILER" : "clang++"
+            }
+        }
+    ]
+}

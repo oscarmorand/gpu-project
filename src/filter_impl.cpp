@@ -74,6 +74,66 @@ extern "C" {
         return {L, a, b};
     }
 
+    bool* hysteresis(float* residual_img, int width, int height)
+    {
+        float upper_threshold = 30;
+        float lower_threshold = 4;
+
+        bool* upper_threshold_vals = (bool*) malloc(sizeof(bool) * height * width);
+        bool* lower_threshold_vals = (bool*) malloc(sizeof(bool) * height * width);
+
+        // Compute the hysteresis thresholds
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                float value = residual_img[y * width + x];
+                upper_threshold_vals[y * width + x] = value > upper_threshold;
+                lower_threshold_vals[y * width + x] = value > lower_threshold;
+            }
+        }
+
+        // Compute the hysteresis propagation
+        bool has_changed = true;
+        while (has_changed)
+        {
+            has_changed = false;
+            for (int y = 0; y < height; ++y)
+            {
+                for (int x = 0; x < width; ++x)
+                {
+                    if (upper_threshold_vals[y * width + x])
+                    {
+                        if (x > 0 && !upper_threshold_vals[y * width + x - 1] && lower_threshold_vals[y * width + x - 1])
+                        {
+                            has_changed = true;
+                            upper_threshold_vals[y * width + x - 1] = true;
+                        }
+                        if (x+1 < width && !upper_threshold_vals[y * width + x + 1] && lower_threshold_vals[y * width + x + 1])
+                        {
+                            has_changed = true;
+                            upper_threshold_vals[y * width + x + 1] = true;
+                        }
+                        if (y > 0 && !upper_threshold_vals[(y-1) * width + x] && lower_threshold_vals[(y-1) * width + x])
+                        {
+                            has_changed = true;
+                            upper_threshold_vals[(y-1) * width + x] = true;
+                        }
+                        if (y+1 < height && !upper_threshold_vals[(y+1) * width + x] && lower_threshold_vals[(y+1) * width + x])
+                        {
+                            has_changed = true;
+                            upper_threshold_vals[(y+1) * width + x] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        free(lower_threshold_vals);
+
+        return upper_threshold_vals;
+    }
+
     void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride)
     {
         Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
@@ -140,33 +200,22 @@ extern "C" {
                 }
             }
 
-            // Save the residual image
-            float max = 0.0;
-            for (int y = 0; y < height; ++y)
-            {
-                for (int x = 0; x < width; ++x)
-                {
-                    float residual_value = residual_img[y * width + x];
-                    if (residual_value > max)
-                    {
-                        max = residual_value;
-                    }
-                }
-            }
+            bool* hyst = hysteresis(residual_img, width, height);
+            free(residual_img);
+
+            // Save the hysteresis
             for (int y = 0; y < height; ++y)
             {
                 rgb* lineptr = (rgb*) (buffer + y * stride);
                 for (int x = 0; x < width; ++x)
                 {
-                    float residual_value = residual_img[y * width + x];
-                    uint8_t out_value = static_cast<uint8_t>((residual_value / max) * 255.0);
-                    lineptr[x].r = uint8_t(out_value);
-                    lineptr[x].g = uint8_t(out_value);
-                    lineptr[x].b = uint8_t(out_value);
+                    bool val = hyst[y * width + x];
+                    lineptr[x].r = val ? 255 : 0;
+                    lineptr[x].g = 0;
+                    lineptr[x].b = 0;
                 }
             }
-
-            free(residual_img);
+            free(hyst);
         }
 
         free(bg_mask);

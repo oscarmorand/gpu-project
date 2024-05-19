@@ -1,0 +1,17 @@
+"C:\Program Files\JetBrains\CLion 2023.3.4\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_MAKE_PROGRAM=C:/Program Files/JetBrains/CLion 2023.3.4/bin/ninja/win/x64/ninja.exe" -G Ninja -S C:\Users\ernes\Desktop\Travail\S8\gpgpu\gpu-project -B C:\Users\ernes\Desktop\Travail\S8\gpgpu\gpu-project\cmake-build-debug
+-- Could NOT find PkgConfig (missing: PKG_CONFIG_EXECUTABLE) 
+CMake Error at C:/Program Files/JetBrains/CLion 2023.3.4/bin/cmake/win/x64/share/cmake-3.27/Modules/FindPkgConfig.cmake:663 (message):
+  pkg-config tool not found
+Call Stack (most recent call first):
+  C:/Program Files/JetBrains/CLion 2023.3.4/bin/cmake/win/x64/share/cmake-3.27/Modules/FindPkgConfig.cmake:829 (_pkg_check_modules_internal)
+  CMakeLists.txt:10 (pkg_check_modules)
+
+
+CMake Error at C:/Program Files/JetBrains/CLion 2023.3.4/bin/cmake/win/x64/share/cmake-3.27/Modules/FindPkgConfig.cmake:663 (message):
+  pkg-config tool not found
+Call Stack (most recent call first):
+  C:/Program Files/JetBrains/CLion 2023.3.4/bin/cmake/win/x64/share/cmake-3.27/Modules/FindPkgConfig.cmake:829 (_pkg_check_modules_internal)
+  CMakeLists.txt:11 (pkg_check_modules)
+
+
+-- Configuring incomplete, errors occurred!

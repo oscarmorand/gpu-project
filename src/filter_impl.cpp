@@ -134,6 +134,39 @@ extern "C" {
         return upper_threshold_vals;
     }
 
+    #define KERNEL_SIZE 3
+    bool kernel[KERNEL_SIZE][KERNEL_SIZE] = {
+            {0,1,0},
+            {1,1,1},
+            {0,1,0}};
+
+    float* filter_morph(std::string action, float* residual_img, int width, int height)
+    {
+        float* residual_img_filtered = (float*) malloc(sizeof(float) * height * width);
+        int half_size = 1;
+        for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x)
+            {
+                float value = 1.0;
+                if (action == "delation")
+                    value = 0.0;
+                for (int ky = -half_size; ky <= half_size; ++ky)
+                    for (int kx = -half_size; kx <= half_size; ++kx) {
+                        if (kernel[ky + half_size][kx + half_size]) {
+                            int yy = std::min(std::max(y + ky, 0), height - 1);
+                            int xx = std::min(std::max(x + kx, 0), width - 1);
+                            if (action == "erosion")
+                                value = std::min(value, residual_img[yy * width + xx]);
+                            if (action == "delation")
+                                value = std::max(value, residual_img[yy * width + xx]);
+                        }
+                    }
+                residual_img_filtered[y * width + x] = value;
+            }
+        free(residual_img);
+        return residual_img_filtered;
+    }
+
     void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride)
     {
         Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
@@ -200,6 +233,8 @@ extern "C" {
                 }
             }
 
+            residual_img = filter_morph(residual_img, width, height, "erosion");
+            residual_img = filter_morph(residual_img, width, height, "delation");
             bool* hyst = hysteresis(residual_img, width, height);
             free(residual_img);
 

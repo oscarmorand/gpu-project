@@ -232,9 +232,9 @@ extern "C" {
                     residual_img[y * width + x] = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
                 }
             }
-
-            residual_img = filter_morph(residual_img, width, height, "erosion");
-            residual_img = filter_morph(residual_img, width, height, "delation");
+            
+            residual_img = filter_morph("erosion", residual_img, width, height);
+            residual_img = filter_morph("delation", residual_img, width, height);
             bool* hyst = hysteresis(residual_img, width, height);
             free(residual_img);
 

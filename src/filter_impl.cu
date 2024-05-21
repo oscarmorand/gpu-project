@@ -24,6 +24,13 @@ struct rgb {
     uint8_t r, g, b;
 };
 
+struct Lab {
+    float L, a, b;
+};
+
+Lab* bg_model = nullptr;
+int n_images = 0;
+
 __constant__ uint8_t* logo;
 
 /// @brief Black out the red channel from the video and add EPITA's logo
@@ -52,9 +59,6 @@ __global__ void remove_red_channel_inp(std::byte* buffer, int width, int height,
     }
 }
 
-
-
-
 namespace 
 {
     void load_logo()
@@ -80,6 +84,7 @@ namespace
     }
 }
 
+/*
 extern "C" {
     void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)
     {
@@ -115,5 +120,182 @@ extern "C" {
             using namespace std::chrono_literals;
             //std::this_thread::sleep_for(100ms);
         }
+    }   
+}
+*/
+
+__device__ Lab rgb_to_lab(rgb in) 
+{
+    float x = 0.4124564 * in.r + 0.3575761 * in.g + 0.1804375 * in.b;
+    float y = 0.2126729 * in.r + 0.7151522 * in.g + 0.0721750 * in.b;
+    float z = 0.0193339 * in.r + 0.1191920 * in.g + 0.9503041 * in.b;
+
+    float xn = 95.0489;
+    float yn = 100.0;
+    float zn = 108.8840;
+
+    float f_y_over_yn = f(y / yn);
+
+    float L = 116 * f_y_over_yn - 16;
+    float a = 500 * (f(x / xn) - f_y_over_yn);
+    float b = 200 * (f_y_over_yn - f(z / zn));
+
+    return {L, a, b};
+}
+
+__global__ void convert_to_lab(std::byte* buffer, Lab* bg_mask, int width, int height, int stride)
+{
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    rgb* lineptr = (rgb*) (buffer + y * stride);
+
+    Lab lab = rgb_to_lab(lineptr[x]);
+
+    bg_mask[y * stride + x] = lab;
+}
+
+__global__ void handle_first_frame(std::byte* buffer, int width, int height, int stride)
+{
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    rgb* lineptr = (rgb*) (buffer + y * stride);
+
+    lineptr[x] = {0,0,0};
+}
+
+__global__ void compute_residual_image(std::byte* bg_mask, std::byte* residual_img, int width, int height, int bg_mask_pitch, int residual_img_pitch)
+{
+    // TODO Map pattern
+}
+
+__global__ void update_background_model(std::byte* bg_mask, int width, int height, int bg_mask_pitch)
+{
+    // TODO Map pattern
+}
+
+#define KERNEL_SIZE 5
+    bool kernel[KERNEL_SIZE][KERNEL_SIZE] = {
+            {0,1,1,1,0},
+            {1,1,1,1,1},
+            {1,1,1,1,1},
+            {1,1,1,1,1},
+            {0,1,1,1,0}};
+
+enum morph_op
+{
+    EROSION,
+    DILATION
+};
+
+__global__ void filter_morph(morph_op action, std::byte* residual_img, std::byte* eroded_img, int width, int height, int residual_img_pitch, int eroded_img_pitch)
+{
+    // TODO Stencil pattern
+}
+
+void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)
+{
+    // TODO Map + Stencil pattern (call two kernels)
+    dim3 blockSize(16,16);
+    dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
+}
+
+__global__ void masking_output(uint8_t* src_buffer, std::byte* hyst, int width, int height, int src_stride, int hyst_pitch)
+{
+    // TODO Map pattern
+}
+
+extern "C" {
+    void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)
+    {
+        assert(sizeof(rgb) == pixel_stride);
+        cudaError_t err;
+
+        dim3 blockSize(16,16);
+        dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
+        
+        size_t bg_mask_pitch;
+        std::byte* bg_mask;
+        err = cudaMallocPitch(&bg_mask, &bg_mask_pitch, width * sizeof(Lab), height);
+        CHECK_CUDA_ERROR(err);
+
+        // Conversion from RGB to Lab color space
+        convert_to_lab<<<gridSize, blockSize>>>(bg_mask, width, height, bg_mask_pitch);
+        err = cudaDeviceSynchronize();
+        CHECK_CUDA_ERROR(err);
+
+        if (bg_model == nullptr) // First frame, no background model
+        {
+            err = cudaMallocPitch(&bg_model, &bg_mask_pitch, width * sizeof(Lab), height);
+            CHECK_CUDA_ERROR(err);
+
+            err = cudaMemcpy2D(bg_model, src_stride, bg_mask, bg_mask_pitch, width * sizeof(Lab), height, cudaMemcpyDeviceToDevice);
+            CHECK_CUDA_ERROR(err);
+
+            handle_first_frame<<<gridSize, blockSize>>>(src_buffer, width, height, src_stride);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+        }
+        else // Normal case
+        {
+            size_t residual_img_pitch;
+            std::byte* residual_img;
+            err = cudaMallocPitch(&residual_img, &residual_img_pitch, width * sizeof(Lab), height);
+            CHECK_CUDA_ERROR(err);
+
+            // Compute the residual image
+            compute_residual_image<<<gridSize, blockSize>>>(bg_mask, residual_img, width, height, bg_mask_pitch, residual_img_pitch);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+
+            // Update the background model with the computed background mask
+            update_background_model<<<gridSize, blockSize>>>(bg_mask, width, height, bg_mask_pitch);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+
+            // Erosion
+            size_t eroded_img_pitch;
+            std::byte* eroded_img;
+            err = cudaMallocPitch(&eroded_img, &eroded_img_pitch, width * sizeof(float), height);
+            CHECK_CUDA_ERROR(err);
+            filter_morph<<<gridSize, blockSize>>>(EROSION, residual_img, eroded_img, width, height, residual_img_pitch, eroded_img_pitch);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+            cudaFree(residual_img);
+
+            // Dilation
+            size_t opened_img_pitch;
+            std::byte* opened_img;
+            err = cudaMallocPitch(&opened_img, &opened_img_pitch, width * sizeof(float), height);
+            CHECK_CUDA_ERROR(err);
+            filter_morph<<<gridSize, blockSize>>>(DILATION, residual_img, opened_img, width, height, residual_img_pitch, opened_img_pitch);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+            cudaFree(eroded_img);
+
+            // Hysteresis
+            size_t hyst_pitch;
+            std::byte* hyst;
+            err = cudaMallocPitch(&hyst, &hyst_pitch, width * sizeof(bool), height);
+            CHECK_CUDA_ERROR(err);
+            hysteresis(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch);
+            cudaFree(opened_img);
+
+            // Save the mask
+            masking_output<<<gridSize, blockSize>>>(src_buffer, hyst, width, height, src_stride, hyst_pitch);
+            err = cudaDeviceSynchronize();
+            CHECK_CUDA_ERROR(err);
+
+            cudaFree(hyst);
+        }
+
+        cudaFree(bg_mask);
     }   
 }

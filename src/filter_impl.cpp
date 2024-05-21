@@ -76,12 +76,11 @@ extern "C" {
         return {L, a, b};
     }
 
-    bool* hysteresis(float* residual_img, int width, int height)
+    bool* hysteresis(float* residual_img, bool* upper_threshold_vals, int width, int height)
     {
         float upper_threshold = 30;
         float lower_threshold = 4;
 
-        bool* upper_threshold_vals = (bool*) malloc(sizeof(bool) * height * width);
         bool* lower_threshold_vals = (bool*) malloc(sizeof(bool) * height * width);
 
         // Compute the hysteresis thresholds
@@ -290,7 +289,8 @@ extern "C" {
             filter_morph(DILATION, eroded_img, opened_img, width, height);
             free(eroded_img);
 
-            bool* hyst = hysteresis(opened_img, width, height);
+            bool* hyst = (bool*) malloc(sizeof(bool) * height * width);
+            hysteresis(opened_img, hyst, width, height);
             free(opened_img);
 
             // Save the hysteresis

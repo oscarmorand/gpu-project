@@ -28,7 +28,8 @@ struct Lab {
     float L, a, b;
 };
 
-Lab* bg_model = nullptr;
+int bg_model_pitch;
+std::byte* bg_model = nullptr;
 int n_images = 0;
 
 __constant__ uint8_t* logo;
@@ -143,7 +144,7 @@ __device__ Lab rgb_to_lab(rgb in)
     return {L, a, b};
 }
 
-__global__ void convert_to_lab(std::byte* buffer, Lab* bg_mask, int width, int height, int stride)
+__global__ void convert_to_lab(std::byte* buffer, std::byte* bg_mask, int width, int height, int src_stride, int bg_mask_pitch)
 {
     int y = blockIdx.y * blockDim.y + threadIdx.y; 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -151,11 +152,12 @@ __global__ void convert_to_lab(std::byte* buffer, Lab* bg_mask, int width, int h
     if (x >= width || y >= height)
         return;
 
-    rgb* lineptr = (rgb*) (buffer + y * stride);
+    rgb* buffer_lineptr = (rgb*) (buffer + y * src_stride);
 
-    Lab lab = rgb_to_lab(lineptr[x]);
+    Lab lab = rgb_to_lab(buffer_lineptr[x]);
 
-    bg_mask[y * stride + x] = lab;
+    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
+    bg_mask_lineptr[x] = lab;
 }
 
 __global__ void handle_first_frame(std::byte* buffer, int width, int height, int stride)
@@ -173,12 +175,41 @@ __global__ void handle_first_frame(std::byte* buffer, int width, int height, int
 
 __global__ void compute_residual_image(std::byte* bg_mask, std::byte* residual_img, int width, int height, int bg_mask_pitch, int residual_img_pitch)
 {
-    // TODO Map pattern
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
+    Lab bg_mask_pixel = bg_mask_lineptr[x];
+
+    Lab* bg_model_lineptr = (Lab*) (bg_model + y * bg_model_pitch);
+    Lab bg_model_pixel = bg_model_lineptr[x];
+
+    float* residual_img_lineptr = (float*) (residual_img + y * residual_img_pitch);
+    residual_img_lineptr[x] = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
 }
 
-__global__ void update_background_model(std::byte* bg_mask, int width, int height, int bg_mask_pitch)
+__global__ void update_background_model(std::byte* bg_mask, int width, int height, int bg_mask_pitch, int n_frames)
 {
-    // TODO Map pattern
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
+    Lab bg_mask_pixel = bg_mask_lineptr[x];
+
+    Lab* bg_model_lineptr = (Lab*) (bg_model + y * bg_model_pitch);
+    Lab bg_model_pixel = bg_model_lineptr[x];
+
+    bg_model_pixel.L = (bg_model_pixel.L * n_frames + bg_mask_pixel.L) / (n_frames + 1);
+    bg_model_pixel.a = (bg_model_pixel.a * n_frames + bg_mask_pixel.a) / (n_frames + 1);
+    bg_model_pixel.b = (bg_model_pixel.b * n_frames + bg_mask_pixel.b) / (n_frames + 1);
+
+    bg_model_lineptr[x] = bg_model_pixel;
 }
 
 #define KERNEL_SIZE 5
@@ -207,9 +238,23 @@ void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, i
     dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
 }
 
-__global__ void masking_output(uint8_t* src_buffer, std::byte* hyst, int width, int height, int src_stride, int hyst_pitch)
+__global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width, int height, int src_stride, int hyst_pitch)
 {
-    // TODO Map pattern
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    rgb* buffer_lineptr = (rgb*) (src_buffer + y * src_stride);
+    rgb in_val = buffer_lineptr[x];
+
+    bool* hyst_lineptr = (bool*) (hyst + y * hyst_pitch);
+    bool val = hyst_lineptr[x];
+
+    buffer_lineptr[x].r = in_val.r / 2 + (val ? 127 : 0);
+    buffer_lineptr[x].g = in_val.g / 2;
+    buffer_lineptr[x].b = in_val.b / 2;
 }
 
 extern "C" {
@@ -227,16 +272,16 @@ extern "C" {
         CHECK_CUDA_ERROR(err);
 
         // Conversion from RGB to Lab color space
-        convert_to_lab<<<gridSize, blockSize>>>(bg_mask, width, height, bg_mask_pitch);
+        convert_to_lab<<<gridSize, blockSize>>>(src_buffer, bg_mask, width, height, src_stride, bg_mask_pitch);
         err = cudaDeviceSynchronize();
         CHECK_CUDA_ERROR(err);
 
         if (bg_model == nullptr) // First frame, no background model
         {
-            err = cudaMallocPitch(&bg_model, &bg_mask_pitch, width * sizeof(Lab), height);
+            err = cudaMallocPitch(&bg_model, &bg_model_pitch, width * sizeof(Lab), height);
             CHECK_CUDA_ERROR(err);
 
-            err = cudaMemcpy2D(bg_model, src_stride, bg_mask, bg_mask_pitch, width * sizeof(Lab), height, cudaMemcpyDeviceToDevice);
+            err = cudaMemcpy2D(bg_model, bg_model_pitch, bg_mask, bg_mask_pitch, width * sizeof(Lab), height, cudaMemcpyDeviceToDevice);
             CHECK_CUDA_ERROR(err);
 
             handle_first_frame<<<gridSize, blockSize>>>(src_buffer, width, height, src_stride);
@@ -256,9 +301,10 @@ extern "C" {
             CHECK_CUDA_ERROR(err);
 
             // Update the background model with the computed background mask
-            update_background_model<<<gridSize, blockSize>>>(bg_mask, width, height, bg_mask_pitch);
+            update_background_model<<<gridSize, blockSize>>>(bg_mask, width, height, bg_mask_pitch, n_images);
             err = cudaDeviceSynchronize();
             CHECK_CUDA_ERROR(err);
+            n_images += 1;
 
             // Erosion
             size_t eroded_img_pitch;

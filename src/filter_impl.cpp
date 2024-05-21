@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <math.h>
+#include <iostream>
+#include <algorithm>
 #include "logo.h"
 
 struct rgb {
@@ -134,44 +136,51 @@ extern "C" {
         return upper_threshold_vals;
     }
 
-    #define KERNEL_SIZE 3
+    #define KERNEL_SIZE 5
     bool kernel[KERNEL_SIZE][KERNEL_SIZE] = {
-            {0,1,0},
-            {1,1,1},
-            {0,1,0}};
+            {0,1,1,1,0},
+            {1,1,1,1,1},
+            {1,1,1,1,1},
+            {1,1,1,1,1},
+            {0,1,1,1,0}};
 
-    float* filter_morph(std::string action, float* residual_img, int width, int height)
+    enum morph_op
     {
-        float* residual_img_filtered = (float*) malloc(sizeof(float) * height * width);
-        int half_size = 1;
+        EROSION,
+        DILATION
+    };
+
+    void filter_morph(morph_op action, float* residual_img, float* residual_img_filtered, int width, int height)
+    {
+        int half_size = 3;
+
         for (int y = 0; y < height; ++y)
+        {
             for (int x = 0; x < width; ++x)
             {
-                float value = 1.0;
-                if (action == "delation")
-                    value = 0.0;
-                for (int ky = -half_size; ky <= half_size; ++ky)
-                    for (int kx = -half_size; kx <= half_size; ++kx) {
+                float value = residual_img[y * width + x];
+
+                for (int ky = -half_size; ky < half_size - 1; ++ky){
+                    for (int kx = -half_size; kx < half_size - 1; ++kx) {
                         if (kernel[ky + half_size][kx + half_size]) {
+
                             int yy = std::min(std::max(y + ky, 0), height - 1);
                             int xx = std::min(std::max(x + kx, 0), width - 1);
-                            if (action == "erosion")
-                                value = std::min(value, residual_img[yy * width + xx]);
-                            if (action == "delation")
-                                value = std::max(value, residual_img[yy * width + xx]);
+
+                            if (action == EROSION)
+                                value = fmin(value, residual_img[yy * width + xx]);
+                            else if (action == DILATION)
+                                value = fmax(value, residual_img[yy * width + xx]);
                         }
                     }
+                }
                 residual_img_filtered[y * width + x] = value;
             }
-        free(residual_img);
-        return residual_img_filtered;
+        }
     }
 
-    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride)
+    void convert_to_lab(uint8_t* buffer, Lab* bg_mask, int width, int height, int stride)
     {
-        Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
-
-        // Conversion
         for (int y = 0; y < height; ++y)
         {
             rgb* lineptr = (rgb*) (buffer + y * stride);
@@ -182,74 +191,111 @@ extern "C" {
                 bg_mask[y * width + x] = lab;
             }
         }
+    }
 
-        if (bg_model == nullptr)
-        {
-            bg_model = (Lab*) malloc(sizeof(Lab) * height * width);
-            std::memcpy(bg_model, bg_mask, sizeof(Lab) * height * width);
+    void handle_first_frame(uint8_t* buffer, Lab* bg_mask, int width, int height, int stride)
+    {
+        bg_model = (Lab*) malloc(sizeof(Lab) * height * width);
+        std::memcpy(bg_model, bg_mask, sizeof(Lab) * height * width);
             
-            for (int y = 0; y < height; ++y)
+        for (int y = 0; y < height; ++y) // Set the output to black
+        {
+            rgb* lineptr = (rgb*) (buffer + y * stride);
+            for (int x = 0; x < width; ++x)
             {
-                rgb* lineptr = (rgb*) (buffer + y * stride);
-                for (int x = 0; x < width; ++x)
-                {
-                    lineptr[x].r = 0;
-                    lineptr[x].g = 0;
-                    lineptr[x].b = 0;
-                }
+                lineptr[x].r = 0;
+                lineptr[x].g = 0;
+                lineptr[x].b = 0;
             }
         }
-        else
+    }
+
+    void update_background_model(Lab* bg_mask, int width, int height)
+    {
+        for (int y = 0; y < height; ++y)
         {
-            // Update the background model
-            for (int y = 0; y < height; ++y)
+            for (int x = 0; x < width; ++x)
             {
-                for (int x = 0; x < width; ++x)
-                {
-                    Lab bg_mask_pixel = bg_mask[y * width + x];
-                    Lab bg_model_pixel = bg_model[y * width + x];
+                Lab bg_mask_pixel = bg_mask[y * width + x];
+                Lab bg_model_pixel = bg_model[y * width + x];
 
-                    bg_model_pixel.L = (bg_model_pixel.L * n_images + bg_mask_pixel.L) / (n_images + 1);
-                    bg_model_pixel.a = (bg_model_pixel.a * n_images + bg_mask_pixel.a) / (n_images + 1);
-                    bg_model_pixel.b = (bg_model_pixel.b * n_images + bg_mask_pixel.b) / (n_images + 1);
+                bg_model_pixel.L = (bg_model_pixel.L * n_images + bg_mask_pixel.L) / (n_images + 1);
+                bg_model_pixel.a = (bg_model_pixel.a * n_images + bg_mask_pixel.a) / (n_images + 1);
+                bg_model_pixel.b = (bg_model_pixel.b * n_images + bg_mask_pixel.b) / (n_images + 1);
 
-                    n_images += 1;
+                n_images += 1;
 
-                    bg_model[y * width + x] = bg_model_pixel;
-                }
+                bg_model[y * width + x] = bg_model_pixel;
             }
+        }
+    }
 
+    void compute_residual_image(Lab* bg_mask, float* residual_img, int width, int height)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                Lab bg_mask_pixel = bg_mask[y * width + x];
+                Lab bg_model_pixel = bg_model[y * width + x];
+
+                residual_img[y * width + x] = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
+            }
+        }
+    }
+
+    void masking_output(uint8_t* buffer, bool* hyst, int width, int height, int stride)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            rgb* lineptr = (rgb*) (buffer + y * stride);
+            for (int x = 0; x < width; ++x)
+            {
+                rgb in_val = lineptr[x];
+                bool val = hyst[y * width + x];
+
+                lineptr[x].r = in_val.r / 2 + (val ? 127 : 0);
+                lineptr[x].g = in_val.g / 2;
+                lineptr[x].b = in_val.b / 2;
+            }
+        }
+    }
+
+    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride)
+    {
+        Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
+
+        // Conversion from RGB to Lab color space
+        convert_to_lab(buffer, bg_mask, width, height, stride);
+
+        if (bg_model == nullptr) // First frame, no background model
+        {
+            handle_first_frame(buffer, bg_mask, width, height, stride);
+        }
+        else // Normal case
+        {
             float* residual_img = (float*) malloc(sizeof(float) * height * width);
 
             // Compute the residual image
-            for (int y = 0; y < height; ++y)
-            {
-                for (int x = 0; x < width; ++x)
-                {
-                    Lab bg_mask_pixel = bg_mask[y * width + x];
-                    Lab bg_model_pixel = bg_model[y * width + x];
+            compute_residual_image(bg_mask, residual_img, width, height);
 
-                    residual_img[y * width + x] = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
-                }
-            }
+            // Update the background model with the computed background mask
+            update_background_model(bg_mask, width, height);
             
-            residual_img = filter_morph("erosion", residual_img, width, height);
-            residual_img = filter_morph("delation", residual_img, width, height);
-            bool* hyst = hysteresis(residual_img, width, height);
+            float* eroded_img = (float*) malloc(sizeof(float) * height * width);
+            filter_morph(EROSION, residual_img, eroded_img, width, height);
             free(residual_img);
 
+            float* opened_img = (float*) malloc(sizeof(float) * height * width);
+            filter_morph(DILATION, eroded_img, opened_img, width, height);
+            free(eroded_img);
+
+            bool* hyst = hysteresis(opened_img, width, height);
+            free(opened_img);
+
             // Save the hysteresis
-            for (int y = 0; y < height; ++y)
-            {
-                rgb* lineptr = (rgb*) (buffer + y * stride);
-                for (int x = 0; x < width; ++x)
-                {
-                    bool val = hyst[y * width + x];
-                    lineptr[x].r = val ? 255 : 0;
-                    lineptr[x].g = 0;
-                    lineptr[x].b = 0;
-                }
-            }
+            masking_output(buffer, hyst, width, height, stride);
+
             free(hyst);
         }
 

@@ -76,7 +76,7 @@ extern "C" {
         return {L, a, b};
     }
 
-    bool* hysteresis(float* residual_img, bool* upper_threshold_vals, int width, int height)
+    void hysteresis(float* residual_img, bool* upper_threshold_vals, int width, int height)
     {
         float upper_threshold = 30;
         float lower_threshold = 4;
@@ -131,8 +131,6 @@ extern "C" {
         }
 
         free(lower_threshold_vals);
-
-        return upper_threshold_vals;
     }
 
     #define KERNEL_SIZE 5

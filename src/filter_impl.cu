@@ -231,10 +231,12 @@ enum morph_op
     DILATION
 };
 
+/*
 __global__ void filter_morph(morph_op action, std::byte* residual_img, std::byte* eroded_img, int width, int height, int residual_img_pitch, int eroded_img_pitch)
 {
     // TODO Stencil pattern
 }
+*/
 
 __global__ void set_changed(bool* has_changed, bool val)
 {
@@ -301,6 +303,7 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
 
 void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)
 {
+    cudaError_t err;
     dim3 blockSize(16,16);
     dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
 
@@ -316,22 +319,28 @@ void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, i
     err = cudaDeviceSynchronize();
     CHECK_CUDA_ERROR(err);
 
-    bool* has_changed;
-    err = cudaMalloc(&has_changed, sizeof(bool));
+    bool h_has_changed = true;
+
+    bool* d_has_changed;
+    err = cudaMalloc(&d_has_changed, sizeof(bool));
     CHECK_CUDA_ERROR(err);
 
-    set_changed<<<1,1>>>(has_changed, true);
+    set_changed<<<1,1>>>(d_has_changed, true);
 
-    while (has_changed)
+    while (h_has_changed)
     {
-        set_changed<<<1,1>>>(has_changed, false);
-
-        hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch, has_changed);
+        set_changed<<<1,1>>>(d_has_changed, false);
         err = cudaDeviceSynchronize();
         CHECK_CUDA_ERROR(err);
+
+        hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch, d_has_changed);
+        err = cudaDeviceSynchronize();
+        CHECK_CUDA_ERROR(err);
+
+        err = cudaMemcpy(&h_has_changed, d_has_changed, sizeof(bool), cudaMemcpyDeviceToHost);
     }
 
-    cudaFree(lower_threshold_pitch);
+    cudaFree(lower_threshold_img);
 }
 
 __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width, int height, int src_stride, int hyst_pitch)
@@ -415,6 +424,7 @@ __global__ void filter_morph_single_kernel(morph_op action, std::byte* img, std:
     }
 }
 
+/*
 __global__ void hysteresis_kernel_single(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch)
     {
         bool has_changed = true;
@@ -477,6 +487,7 @@ void hysteresis_single(std::byte* opened_img, std::byte* hyst, int width, int he
 
     cudaFree(lower_threshold_img);
 }
+*/
 
 extern "C" {
     void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)

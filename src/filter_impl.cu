@@ -231,19 +231,108 @@ enum morph_op
     DILATION
 };
 
-/*
 __global__ void filter_morph(morph_op action, std::byte* residual_img, std::byte* eroded_img, int width, int height, int residual_img_pitch, int eroded_img_pitch)
 {
     // TODO Stencil pattern
 }
 
+__global__ void set_changed(bool* has_changed, bool val)
+{
+    *has_changed = val;
+}
+
+__global__ void hysteresis_threshold(std::byte* img, std::byte* out, int width, int height, size_t img_pitch, size_t out_pitch, float threshold)
+{
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (x >= width || y >= height)
+        return;
+
+    float* img_lineptr = (float*) (img + y * img_pitch);
+    float in_val = img_lineptr[x];
+
+    bool* out_lineptr = (bool*) (out + y * out_pitch);
+    out_lineptr[x] = in_val > threshold;
+}
+
+__global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch, bool* has_changed)
+{
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    if (x >= width || y >= height) return;
+
+    bool* upper_lineptr = (bool*) (upper + y * upper_pitch);
+    if (upper_lineptr[x]) return;
+
+    bool* lower_lineptr = (bool*) (lower + y * lower_pitch);
+    if (!lower_lineptr[x]) return;
+
+    if (x > 0 && upper_lineptr[x - 1]) {
+        upper_lineptr[x] = true;
+        *has_changed = true;
+        return;
+    }
+
+    if (x < width-1 && upper_lineptr[x + 1]) {
+        upper_lineptr[x] = true;
+        *has_changed = true;
+        return;
+    }
+
+    if (y > 0) {
+        bool* upper_lineptr_prev = (bool*) (upper + (y-1) * upper_pitch);
+        if (upper_lineptr_prev[x]) {
+            upper_lineptr[x] = true;
+            *has_changed = true;
+            return;
+        }
+    }
+
+    if (y < height-1) {
+        bool* upper_lineptr_next = (bool*) (upper + (y+1) * upper_pitch);
+        if (upper_lineptr_next[x]) {
+            upper_lineptr[x] = true;
+            *has_changed = true;
+            return;
+        }
+    }
+}
+
 void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)
 {
-    // TODO Map + Stencil pattern (call two kernels)
     dim3 blockSize(16,16);
     dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
+
+    size_t lower_threshold_pitch;
+    std::byte* lower_threshold_img;
+    err = cudaMallocPitch(&lower_threshold_img, &lower_threshold_pitch, width * sizeof(bool), height);
+    CHECK_CUDA_ERROR(err);
+
+    // Lower threshold
+    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, lower_threshold_img, width, height, opened_img_pitch, lower_threshold_pitch, 4.0);
+    // Upper threshold
+    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch, 30.0);
+    err = cudaDeviceSynchronize();
+    CHECK_CUDA_ERROR(err);
+
+    bool* has_changed;
+    err = cudaMalloc(&has_changed, sizeof(bool));
+    CHECK_CUDA_ERROR(err);
+
+    set_changed<<<1,1>>>(has_changed, true);
+
+    while (has_changed)
+    {
+        set_changed<<<1,1>>>(has_changed, false);
+
+        hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch, has_changed);
+        err = cudaDeviceSynchronize();
+        CHECK_CUDA_ERROR(err);
+    }
+
+    cudaFree(lower_threshold_pitch);
 }
-*/
 
 __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width, int height, int src_stride, int hyst_pitch)
 {
@@ -364,21 +453,6 @@ __global__ void hysteresis_kernel_single(std::byte* upper, std::byte* lower, int
         }   
     }
 
-__global__ void hysteresis_threshold(std::byte* img, std::byte* out, int width, int height, size_t img_pitch, size_t out_pitch, float threshold)
-{
-    int y = blockIdx.y * blockDim.y + threadIdx.y; 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (x >= width || y >= height)
-        return;
-
-    float* img_lineptr = (float*) (img + y * img_pitch);
-    float in_val = img_lineptr[x];
-
-    bool* out_lineptr = (bool*) (out + y * out_pitch);
-    out_lineptr[x] = in_val > threshold;
-}
-
 void hysteresis_single(std::byte* opened_img, std::byte* hyst, int width, int height, size_t opened_img_pitch, size_t hyst_pitch)
 {
     cudaError_t err;
@@ -490,7 +564,7 @@ extern "C" {
             std::byte* hyst;
             err = cudaMallocPitch(&hyst, &hyst_pitch, width * sizeof(bool), height);
             CHECK_CUDA_ERROR(err);
-            hysteresis_single(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch);
+            hysteresis(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch);
             cudaFree(opened_img);
 
             // Save the mask

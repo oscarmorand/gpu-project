@@ -29,102 +29,15 @@ struct Lab {
     float L, a, b;
 };
 
+enum morph_op
+{
+    EROSION,
+    DILATION
+};
+
 size_t bg_model_pitch;
 std::byte* bg_model = nullptr;
 int n_images = 0;
-
-/*
-__constant__ uint8_t* logo;
-
-/// @brief Black out the red channel from the video and add EPITA's logo
-/// @param buffer 
-/// @param width 
-/// @param height 
-/// @param stride 
-/// @param pixel_stride 
-/// @return 
-__global__ void remove_red_channel_inp(std::byte* buffer, int width, int height, int stride)
-{
-    int y = blockIdx.y * blockDim.y + threadIdx.y; 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (x >= width || y >= height)
-        return; 
-
-    rgb* lineptr = (rgb*) (buffer + y * stride);
-    if (y < logo_height && x < logo_width) {
-        float alpha = logo[y * logo_width + x] / 255.f;
-        lineptr[x].r = 0;
-        lineptr[x].g = uint8_t(alpha * lineptr[x].g + (1-alpha) * 255);
-        lineptr[x].b = uint8_t(alpha * lineptr[x].b + (1-alpha) * 255);
-    } else {
-        lineptr[x].r = 0;
-    }
-}
-
-namespace 
-{
-    void load_logo()
-    {
-        static auto buffer = std::unique_ptr<std::byte, decltype(&cudaFree)>{nullptr, &cudaFree}; 
-
-        if (buffer == nullptr)
-        {
-            cudaError_t err;
-            std::byte* ptr;
-            err = cudaMalloc(&ptr, logo_width * logo_height);
-            CHECK_CUDA_ERROR(err);
-
-            err = cudaMemcpy(ptr, logo_data, logo_width * logo_height, cudaMemcpyHostToDevice);
-            CHECK_CUDA_ERROR(err);
-
-            err = cudaMemcpyToSymbol(logo, &ptr, sizeof(ptr));
-            CHECK_CUDA_ERROR(err);
-
-            buffer.reset(ptr);
-        }
-
-    }
-}
-
-extern "C" {
-    void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)
-    {
-        load_logo();
-
-        assert(sizeof(rgb) == pixel_stride);
-        std::byte* dBuffer;
-        size_t pitch;
-
-        cudaError_t err;
-        
-        err = cudaMallocPitch(&dBuffer, &pitch, width * sizeof(rgb), height);
-        CHECK_CUDA_ERROR(err);
-
-        err = cudaMemcpy2D(dBuffer, pitch, src_buffer, src_stride, width * sizeof(rgb), height, cudaMemcpyDefault);
-        CHECK_CUDA_ERROR(err);
-
-        dim3 blockSize(16,16);
-        dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
-
-        remove_red_channel_inp<<<gridSize, blockSize>>>(dBuffer, width, height, pitch);
-
-        err = cudaMemcpy2D(src_buffer, src_stride, dBuffer, pitch, width * sizeof(rgb), height, cudaMemcpyDefault);
-        CHECK_CUDA_ERROR(err);
-
-        cudaFree(dBuffer);
-
-        err = cudaDeviceSynchronize();
-        CHECK_CUDA_ERROR(err);
-
-
-        {
-            using namespace std::chrono_literals;
-            //std::this_thread::sleep_for(100ms);
-        }
-    }   
-}
-*/
 
 template<typename T> 
 __device__ T get_strided(std::byte* array, size_t pitch, int x, int y)
@@ -232,12 +145,6 @@ __global__ void update_background_model(std::byte* bg_mask, std::byte* bg_model,
 
     set_strided<Lab>(bg_model, bg_model_pitch, x, y, bg_model_pixel);
 }
-
-enum morph_op
-{
-    EROSION,
-    DILATION
-};
 
 __global__ void set_changed(bool* has_changed, bool val)
 {
@@ -442,7 +349,7 @@ extern "C" {
             // Device residual image
             size_t residual_img_pitch;
             std::byte* residual_img;
-            err = cudaMallocPitch(&residual_img, &residual_img_pitch, width * sizeof(Lab), height);
+            err = cudaMallocPitch(&residual_img, &residual_img_pitch, widtmp4h * sizeof(Lab), height);
             CHECK_CUDA_ERROR(err);
 
             // Compute the residual image

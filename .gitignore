@@ -8,3 +8,5 @@
 build/
 .idea/
 cmake-build-debug/
+archives/
+video.mp4

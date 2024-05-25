@@ -126,6 +126,20 @@ extern "C" {
 }
 */
 
+template<typename T> 
+__device__ T get_strided(std::byte* array, size_t pitch, int x, int y)
+{
+    T* lineptr = (T*) (array + y * pitch);
+    return lineptr[x];
+}
+
+template<typename T> 
+__device__ void set_strided(std::byte* array, size_t pitch, int x, int y, T value)
+{
+    T* lineptr = (T*) (array + y * pitch);
+    lineptr[x] = value;
+}
+
 __device__ float f(float t)
 {
     if (t > pow((6.0/29.0), 3.0))
@@ -162,12 +176,10 @@ __global__ void convert_to_lab(std::byte* buffer, std::byte* bg_mask, int width,
     if (x >= width || y >= height)
         return;
 
-    rgb* buffer_lineptr = (rgb*) (buffer + y * src_stride);
+    rgb value = get_strided<rgb>(buffer, src_stride, x, y);
+    Lab lab = rgb_to_lab(value);
 
-    Lab lab = rgb_to_lab(buffer_lineptr[x]);
-
-    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
-    bg_mask_lineptr[x] = lab;
+    set_strided<Lab>(bg_mask, bg_mask_pitch, x, y, lab);
 }
 
 __global__ void handle_first_frame(std::byte* buffer, int width, int height, int stride)
@@ -178,12 +190,13 @@ __global__ void handle_first_frame(std::byte* buffer, int width, int height, int
     if (x >= width || y >= height)
         return;
 
-    rgb* lineptr = (rgb*) (buffer + y * stride);
-    rgb in_val = lineptr[x];
+    rgb in_val = get_strided<rgb>(buffer, stride, x, y);
 
-    lineptr[x].r = in_val.r / 2;
-    lineptr[x].g = in_val.g / 2;
-    lineptr[x].b = in_val.b / 2;
+    in_val.r = in_val.r / 2;
+    in_val.g = in_val.g / 2;
+    in_val.b = in_val.b / 2;
+
+    set_strided<rgb>(buffer, stride, x, y, in_val);
 }
 
 __global__ void compute_residual_image(std::byte* bg_mask, std::byte* residual_img, std::byte* bg_model, int width, int height, int bg_mask_pitch, int residual_img_pitch, int bg_model_pitch)
@@ -194,14 +207,12 @@ __global__ void compute_residual_image(std::byte* bg_mask, std::byte* residual_i
     if (x >= width || y >= height)
         return;
 
-    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
-    Lab bg_mask_pixel = bg_mask_lineptr[x];
+    Lab bg_mask_pixel = get_strided<Lab>(bg_mask, bg_mask_pitch, x, y);
+    Lab bg_model_pixel = get_strided<Lab>(bg_model, bg_model_pitch, x, y);
 
-    Lab* bg_model_lineptr = (Lab*) (bg_model + y * bg_model_pitch);
-    Lab bg_model_pixel = bg_model_lineptr[x];
-
-    float* residual_img_lineptr = (float*) (residual_img + y * residual_img_pitch);
-    residual_img_lineptr[x] = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
+    float residual_value = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
+    
+    set_strided<float>(residual_img, residual_img_pitch, x, y, residual_value);
 }
 
 __global__ void update_background_model(std::byte* bg_mask, std::byte* bg_model, int width, int height, int bg_mask_pitch, int bg_model_pitch, int n_frames)
@@ -212,17 +223,14 @@ __global__ void update_background_model(std::byte* bg_mask, std::byte* bg_model,
     if (x >= width || y >= height)
         return;
 
-    Lab* bg_mask_lineptr = (Lab*) (bg_mask + y * bg_mask_pitch);
-    Lab bg_mask_pixel = bg_mask_lineptr[x];
-
-    Lab* bg_model_lineptr = (Lab*) (bg_model + y * bg_model_pitch);
-    Lab bg_model_pixel = bg_model_lineptr[x];
+    Lab bg_mask_pixel = get_strided<Lab>(bg_mask, bg_mask_pitch, x, y);
+    Lab bg_model_pixel = get_strided<Lab>(bg_model, bg_model_pitch, x, y);
 
     bg_model_pixel.L = (bg_model_pixel.L * n_frames + bg_mask_pixel.L) / (n_frames + 1);
     bg_model_pixel.a = (bg_model_pixel.a * n_frames + bg_mask_pixel.a) / (n_frames + 1);
     bg_model_pixel.b = (bg_model_pixel.b * n_frames + bg_mask_pixel.b) / (n_frames + 1);
 
-    bg_model_lineptr[x] = bg_model_pixel;
+    set_strided<Lab>(bg_model, bg_model_pitch, x, y, bg_model_pixel);
 }
 
 enum morph_op
@@ -230,13 +238,6 @@ enum morph_op
     EROSION,
     DILATION
 };
-
-/*
-__global__ void filter_morph(morph_op action, std::byte* residual_img, std::byte* eroded_img, int width, int height, int residual_img_pitch, int eroded_img_pitch)
-{
-    // TODO Stencil pattern
-}
-*/
 
 __global__ void set_changed(bool* has_changed, bool val)
 {
@@ -304,7 +305,7 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
 void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)
 {
     cudaError_t err;
-    dim3 blockSize(16,16);
+    dim3 blockSize(32,32);
     dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
 
     size_t lower_threshold_pitch;
@@ -351,18 +352,18 @@ __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width
     if (x >= width || y >= height)
         return;
 
-    rgb* buffer_lineptr = (rgb*) (src_buffer + y * src_stride);
-    rgb in_val = buffer_lineptr[x];
+    rgb in_val = get_strided<rgb>(src_buffer, src_stride, x, y);
+    bool val = get_strided<bool>(hyst, hyst_pitch, x, y);
 
-    bool* hyst_lineptr = (bool*) (hyst + y * hyst_pitch);
-    bool val = hyst_lineptr[x];
+    in_val.r = in_val.r / 2 + (val ? 127 : 0);
+    in_val.g = in_val.g / 2;
+    in_val.b = in_val.b / 2;
 
-    buffer_lineptr[x].r = in_val.r / 2 + (val ? 127 : 0);
-    buffer_lineptr[x].g = in_val.g / 2;
-    buffer_lineptr[x].b = in_val.b / 2;
+    set_strided<rgb>(src_buffer, src_stride, x, y, in_val);
 }
 
 #define KERNEL_SIZE 5
+#define HALF_KERNEL_SIZE 3
  __device__ bool kernel[KERNEL_SIZE][KERNEL_SIZE] = {
         {0,1,1,1,0},
         {1,1,1,1,1},
@@ -370,124 +371,31 @@ __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width
         {1,1,1,1,1},
         {0,1,1,1,0}};
 
-__device__ bool get_strided_bool(std::byte* array, size_t pitch, int x, int y)
+__global__ void filter_morph_kernel(morph_op action, std::byte* img, std::byte* filtered_img, int width, int height, size_t img_pitch, size_t filtered_img_pitch)
 {
-    bool* lineptr = (bool*) (array + y * pitch);
-    return lineptr[x];
-}
+    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
 
-__device__ float get_strided_float(std::byte* array, size_t pitch, int x, int y)
-{
-    float* lineptr = (float*) (array + y * pitch);
-    return lineptr[x];
-}
+    if (x >= width || y >= height) return;
 
-__device__ void set_strided_bool(std::byte* array, size_t pitch, int x, int y, bool value)
-{
-    bool* lineptr = (bool*) (array + y * pitch);
-    lineptr[x] = value;
-}
+    float value = get_strided<float>(img, img_pitch, x, y);
 
-__device__ void set_strided_float(std::byte* array, size_t pitch, int x, int y, float value)
-{
-    float* lineptr = (float*) (array + y * pitch);
-    lineptr[x] = value;
-}
+    for (int ky = -HALF_KERNEL_SIZE; ky < HALF_KERNEL_SIZE - 1; ky++){
+        for (int kx = -HALF_KERNEL_SIZE; kx < HALF_KERNEL_SIZE - 1; kx++){
+            if (x < HALF_KERNEL_SIZE || x >= width - HALF_KERNEL_SIZE || y < HALF_KERNEL_SIZE || y >= height - HALF_KERNEL_SIZE)
+                continue;
 
-__global__ void filter_morph_single_kernel(morph_op action, std::byte* img, std::byte* filtered_img, int width, int height, size_t img_pitch, size_t filtered_img_pitch)
-{
-    int half_size = 3;
-
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            float value = get_strided_float(img, img_pitch, x, y);
-
-            for (int ky = -half_size; ky < half_size - 1; ++ky){
-                for (int kx = -half_size; kx < half_size - 1; ++kx) {
-                    if (kernel[ky + half_size][kx + half_size]) {
-
-                        int yy = min(max(y + ky, 0), height - 1);
-                        int xx = min(max(x + kx, 0), width - 1);
-
-                        if (action == EROSION)
-                            value = min(value, get_strided_float(img, img_pitch, xx, yy));
-                        else if (action == DILATION)
-                            value = max(value, get_strided_float(img, img_pitch, xx, yy));
-                    }
-                }
-            }
-
-            set_strided_float(filtered_img, filtered_img_pitch, x, y, value);
+            float k_val = get_strided<float>(img, img_pitch, x + kx, y + ky);
+            if (action == EROSION)
+                value = min(value, k_val);
+            else if (action == DILATION)
+                value = max(value, k_val);
         }
     }
+
+    set_strided<float>(filtered_img, filtered_img_pitch, x, y, value);
 }
 
-/*
-__global__ void hysteresis_kernel_single(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch)
-    {
-        bool has_changed = true;
-        while (has_changed)
-        {
-            has_changed = false;
-            for (int y = 0; y < height; ++y)
-            {
-                for (int x = 0; x < width; ++x)
-                {
-                    if (get_strided_bool(upper, upper_pitch, x, y))
-                    {
-                        if (x > 0 && !get_strided_bool(upper, upper_pitch, x - 1, y) && get_strided_bool(lower, lower_pitch, x - 1, y))
-                        {
-                            has_changed = true;
-                            set_strided_bool(upper, upper_pitch, x - 1, y, true);
-                        }
-                        if (x+1 < width && !get_strided_bool(upper, upper_pitch, x + 1, y) && get_strided_bool(lower, lower_pitch, x + 1, y))
-                        {
-                            has_changed = true;
-                            set_strided_bool(upper, upper_pitch, x + 1, y, true);
-                        }
-                        if (y > 0 && !get_strided_bool(upper, upper_pitch, x, y - 1) && get_strided_bool(lower, lower_pitch, x, y - 1))
-                        {
-                            has_changed = true;
-                            set_strided_bool(upper, upper_pitch, x, y - 1, true);
-                        }
-                        if (y+1 < height && !get_strided_bool(upper, upper_pitch, x, y + 1) && get_strided_bool(lower, lower_pitch, x, y + 1))
-                        {
-                            has_changed = true;
-                            set_strided_bool(upper, upper_pitch, x, y + 1, true);
-                        }
-                    }
-                }
-            }
-        }   
-    }
-
-void hysteresis_single(std::byte* opened_img, std::byte* hyst, int width, int height, size_t opened_img_pitch, size_t hyst_pitch)
-{
-    cudaError_t err;
-    dim3 blockSize(32,32);
-    dim3 gridSize((width + (blockSize.x - 1)) / blockSize.x, (height + (blockSize.y - 1)) / blockSize.y);
-
-    size_t lower_threshold_pitch;
-    std::byte* lower_threshold_img;
-    err = cudaMallocPitch(&lower_threshold_img, &lower_threshold_pitch, width * sizeof(bool), height);
-    CHECK_CUDA_ERROR(err);
-
-    // Lower threshold
-    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, lower_threshold_img, width, height, opened_img_pitch, lower_threshold_pitch, 4.0);
-    // Upper threshold
-    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch, 30.0);
-    err = cudaDeviceSynchronize();
-    CHECK_CUDA_ERROR(err);
-
-    hysteresis_kernel_single<<<1, 1>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch);
-    err = cudaDeviceSynchronize();
-    CHECK_CUDA_ERROR(err);
-
-    cudaFree(lower_threshold_img);
-}
-*/
 
 extern "C" {
     void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)
@@ -553,8 +461,7 @@ extern "C" {
             std::byte* eroded_img;
             err = cudaMallocPitch(&eroded_img, &eroded_img_pitch, width * sizeof(float), height);
             CHECK_CUDA_ERROR(err);
-            //filter_morph<<<gridSize, blockSize>>>(EROSION, residual_img, eroded_img, width, height, residual_img_pitch, eroded_img_pitch);
-            filter_morph_single_kernel<<<1, 1>>>(EROSION, residual_img, eroded_img, width, height, residual_img_pitch, eroded_img_pitch);
+            filter_morph_kernel<<<gridSize, blockSize>>>(EROSION, residual_img, eroded_img, width, height, residual_img_pitch, eroded_img_pitch);
             err = cudaDeviceSynchronize();
             CHECK_CUDA_ERROR(err);
             cudaFree(residual_img);
@@ -564,9 +471,7 @@ extern "C" {
             std::byte* opened_img;
             err = cudaMallocPitch(&opened_img, &opened_img_pitch, width * sizeof(float), height);
             CHECK_CUDA_ERROR(err);
-            //filter_morph<<<gridSize, blockSize>>>(DILATION, residual_img, opened_img, width, height, residual_img_pitch, opened_img_pitch);
-            filter_morph_single_kernel<<<1, 1>>>(DILATION, eroded_img, opened_img, width, height, eroded_img_pitch, opened_img_pitch);
-            err = cudaDeviceSynchronize();
+            filter_morph_kernel<<<gridSize, blockSize>>>(DILATION, eroded_img, opened_img, width, height, eroded_img_pitch, opened_img_pitch);            err = cudaDeviceSynchronize();
             CHECK_CUDA_ERROR(err);
             cudaFree(eroded_img);
 

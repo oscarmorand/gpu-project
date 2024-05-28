@@ -280,19 +280,34 @@ __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width
 
 __global__ void filter_morph_kernel(morph_op action, std::byte* img, std::byte* filtered_img, int width, int height, size_t img_pitch, size_t filtered_img_pitch)
 {
+    int tile_width = 32 + 2*(HALF_KERNEL_SIZE-1);
+    __shared__ float tile[tile_width][tile_width];
+
+    int y_pad = blockIdx.y * blockDim.y - HALF_KERNEL_SIZE + 1;
+    int x_pad = blockIdx.x * blockDim.x - HALF_KERNEL_SIZE + 1;
+
+    for (int tile_y = threadIdx.y; tile_y < tile_width; tile_y += blockDim.y)
+    {
+        for (int tile_x = threadIdx.x; tile_x < tile_width; tile_x += blockDim.x)
+        {
+            if (tile_x < width && tile_y < height && tile_x+x_pad >= 0 && tile_y+y_pad >= 0)
+            {
+                tile[tile_y][tile_x] = get_strided<float>(img, img_pitch, tile_x+x_pad, tile_y+y_pad);
+            }
+        }
+    }
+
     int y = blockIdx.y * blockDim.y + threadIdx.y; 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (x >= width || y >= height) return;
-
-    float value = get_strided<float>(img, img_pitch, x, y);
+    float value = tile[threadIdx.y-y_pad][threadIdx.x-x_pad];
 
     for (int ky = -HALF_KERNEL_SIZE; ky < HALF_KERNEL_SIZE - 1; ky++){
         for (int kx = -HALF_KERNEL_SIZE; kx < HALF_KERNEL_SIZE - 1; kx++){
             if (x < HALF_KERNEL_SIZE || x >= width - HALF_KERNEL_SIZE || y < HALF_KERNEL_SIZE || y >= height - HALF_KERNEL_SIZE)
                 continue;
 
-            float k_val = get_strided<float>(img, img_pitch, x + kx, y + ky);
+            float k_val = tile[threadIdx.y + ky - y_pad][threadIdx.x + kx - x_pad]
             if (action == EROSION)
                 value = min(value, k_val);
             else if (action == DILATION)

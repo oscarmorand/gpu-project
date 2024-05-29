@@ -168,41 +168,56 @@ __global__ void hysteresis_threshold(std::byte* img, std::byte* out, int width, 
 
 __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch, bool* has_changed)
 {
-    int y = blockIdx.y * blockDim.y + threadIdx.y; 
+    int tile_width = 34;
+    __shared__ bool upper_tile[tile_width][tile_width];
+    __shared__ bool lower_tile[tile_width][tile_width];
+
+    int y_pad = blockIdx.y * blockDim.y - 1;
+    int x_pad = blockIdx.x * blockDim.x - 1;
+
+    for (int tile_y = threadIdx.y; tile_y < tile_width; tile_y += blockDim.y)
+    {
+        for (int tile_x = threadIdx.x; tile_x < tile_width; tile_x += blockDim.x)
+        {
+            if (tile_x < width && tile_y < height && tile_x+x_pad >= 0 && tile_y+y_pad >= 0)
+            {
+                upper_tile[tile_y][tile_x] = get_strided<bool>(upper, upper_pitch, tile_x+x_pad, tile_y+y_pad);
+                lower_tile[tile_y][tile_x] = get_strided<bool>(lower, lower_pitch, tile_x+x_pad, tile_y+y_pad);
+            }
+        }
+    }
+
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
+
     if (x >= width || y >= height) return;
 
-    bool* upper_lineptr = (bool*) (upper + y * upper_pitch);
-    if (upper_lineptr[x]) return;
+    if (upper_tile[y-y_pad][x-x_pad]) return;
+    if (!lower_tile[y-y_pad][x-x_pad]) return;
 
-    bool* lower_lineptr = (bool*) (lower + y * lower_pitch);
-    if (!lower_lineptr[x]) return;
-
-    if (x > 0 && upper_lineptr[x - 1]) {
-        upper_lineptr[x] = true;
+    if (x > 0 && upper_tile[y-y_pad][x-x_pad-1]) {
+        set_strided<bool>(upper, upper_pitch, x, y, true);
         *has_changed = true;
         return;
     }
 
-    if (x < width-1 && upper_lineptr[x + 1]) {
-        upper_lineptr[x] = true;
+    if (x < width-1 && upper_tile[y-y_pad][x-x_pad+1]) {
+        set_strided<bool>(upper, upper_pitch, x, y, true);
         *has_changed = true;
         return;
     }
 
     if (y > 0) {
-        bool* upper_lineptr_prev = (bool*) (upper + (y-1) * upper_pitch);
-        if (upper_lineptr_prev[x]) {
-            upper_lineptr[x] = true;
+        if (upper_tile[y-y_pad-1][x-x_pad]) {
+            set_strided<bool>(upper, upper_pitch, x, y, true);
             *has_changed = true;
             return;
         }
     }
 
     if (y < height-1) {
-        bool* upper_lineptr_next = (bool*) (upper + (y+1) * upper_pitch);
-        if (upper_lineptr_next[x]) {
-            upper_lineptr[x] = true;
+        if (upper_tile[y-y_pad+1][x-x_pad]) {
+            set_strided<bool>(upper, upper_pitch, x, y, true);
             *has_changed = true;
             return;
         }
@@ -300,14 +315,17 @@ __global__ void filter_morph_kernel(morph_op action, std::byte* img, std::byte* 
     int y = blockIdx.y * blockDim.y + threadIdx.y; 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
 
-    float value = tile[threadIdx.y-y_pad][threadIdx.x-x_pad];
+    if (x >= width || y >= height)
+        return;
+
+    float value = tile[y-y_pad][x-x_pad];
 
     for (int ky = -HALF_KERNEL_SIZE; ky < HALF_KERNEL_SIZE - 1; ky++){
         for (int kx = -HALF_KERNEL_SIZE; kx < HALF_KERNEL_SIZE - 1; kx++){
             if (x < HALF_KERNEL_SIZE || x >= width - HALF_KERNEL_SIZE || y < HALF_KERNEL_SIZE || y >= height - HALF_KERNEL_SIZE)
                 continue;
 
-            float k_val = tile[threadIdx.y + ky - y_pad][threadIdx.x + kx - x_pad]
+            float k_val = tile[y + ky - y_pad][x + kx - x_pad]
             if (action == EROSION)
                 value = min(value, k_val);
             else if (action == DILATION)

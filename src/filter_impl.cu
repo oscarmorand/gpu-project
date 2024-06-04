@@ -166,18 +166,19 @@ __global__ void hysteresis_threshold(std::byte* img, std::byte* out, int width, 
     out_lineptr[x] = in_val > threshold;
 }
 
+#define HYST_TILE_WIDTH 34
+
 __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch, bool* has_changed)
 {
-    int tile_width = 34;
-    __shared__ bool upper_tile[tile_width][tile_width];
-    __shared__ bool lower_tile[tile_width][tile_width];
+    __shared__ bool upper_tile[HYST_TILE_WIDTH][HYST_TILE_WIDTH];
+    __shared__ bool lower_tile[HYST_TILE_WIDTH][HYST_TILE_WIDTH];
 
     int y_pad = blockIdx.y * blockDim.y - 1;
     int x_pad = blockIdx.x * blockDim.x - 1;
 
-    for (int tile_y = threadIdx.y; tile_y < tile_width; tile_y += blockDim.y)
+    for (int tile_y = threadIdx.y; tile_y < HYST_TILE_WIDTH; tile_y += blockDim.y)
     {
-        for (int tile_x = threadIdx.x; tile_x < tile_width; tile_x += blockDim.x)
+        for (int tile_x = threadIdx.x; tile_x < HYST_TILE_WIDTH; tile_x += blockDim.x)
         {
             if (tile_x < width && tile_y < height && tile_x+x_pad >= 0 && tile_y+y_pad >= 0)
             {
@@ -186,6 +187,8 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
             }
         }
     }
+
+    __syncthreads();
 
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -248,8 +251,6 @@ void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, i
     err = cudaMalloc(&d_has_changed, sizeof(bool));
     CHECK_CUDA_ERROR(err);
 
-    set_changed<<<1,1>>>(d_has_changed, true);
-
     while (h_has_changed)
     {
         set_changed<<<1,1>>>(d_has_changed, false);
@@ -286,6 +287,7 @@ __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width
 
 #define KERNEL_SIZE 5
 #define HALF_KERNEL_SIZE 3
+#define TILE_WIDTH 32 + 2*(HALF_KERNEL_SIZE-1)
  __device__ bool kernel[KERNEL_SIZE][KERNEL_SIZE] = {
         {0,1,1,1,0},
         {1,1,1,1,1},
@@ -295,37 +297,38 @@ __global__ void masking_output(std::byte* src_buffer, std::byte* hyst, int width
 
 __global__ void filter_morph_kernel(morph_op action, std::byte* img, std::byte* filtered_img, int width, int height, size_t img_pitch, size_t filtered_img_pitch)
 {
-    int tile_width = 32 + 2*(HALF_KERNEL_SIZE-1);
-    __shared__ float tile[tile_width][tile_width];
-
-    int y_pad = blockIdx.y * blockDim.y - HALF_KERNEL_SIZE + 1;
-    int x_pad = blockIdx.x * blockDim.x - HALF_KERNEL_SIZE + 1;
-
-    for (int tile_y = threadIdx.y; tile_y < tile_width; tile_y += blockDim.y)
-    {
-        for (int tile_x = threadIdx.x; tile_x < tile_width; tile_x += blockDim.x)
-        {
-            if (tile_x < width && tile_y < height && tile_x+x_pad >= 0 && tile_y+y_pad >= 0)
-            {
-                tile[tile_y][tile_x] = get_strided<float>(img, img_pitch, tile_x+x_pad, tile_y+y_pad);
-            }
-        }
-    }
-
     int y = blockIdx.y * blockDim.y + threadIdx.y; 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (x >= width || y >= height)
         return;
 
+    __shared__ float tile[TILE_WIDTH][TILE_WIDTH];
+
+    int y_pad = blockIdx.y * blockDim.y - HALF_KERNEL_SIZE + 1;
+    int x_pad = blockIdx.x * blockDim.x - HALF_KERNEL_SIZE + 1;
+
+    for (int tile_y = threadIdx.y; tile_y < TILE_WIDTH; tile_y += blockDim.y)
+    {
+        for (int tile_x = threadIdx.x; tile_x < TILE_WIDTH; tile_x += blockDim.x)
+        {
+            if (tile_x+x_pad < width && tile_y+y_pad < height && tile_x+x_pad >= 0 && tile_y+y_pad >= 0)
+            {
+                tile[tile_y][tile_x] = get_strided<float>(img, img_pitch, tile_x+x_pad, tile_y+y_pad);
+            }
+        }
+    }
+
+    __syncthreads();
+
     float value = tile[y-y_pad][x-x_pad];
 
-    for (int ky = -HALF_KERNEL_SIZE; ky < HALF_KERNEL_SIZE - 1; ky++){
-        for (int kx = -HALF_KERNEL_SIZE; kx < HALF_KERNEL_SIZE - 1; kx++){
-            if (x < HALF_KERNEL_SIZE || x >= width - HALF_KERNEL_SIZE || y < HALF_KERNEL_SIZE || y >= height - HALF_KERNEL_SIZE)
+    for (int ky = -HALF_KERNEL_SIZE + 1; ky < HALF_KERNEL_SIZE; ky++){
+        for (int kx = -HALF_KERNEL_SIZE + 1; kx < HALF_KERNEL_SIZE; kx++){
+            if (x + kx < 0 || x + kx >= width || y + ky < 0 || y + ky >= height)
                 continue;
 
-            float k_val = tile[y + ky - y_pad][x + kx - x_pad]
+            float k_val = tile[y + ky - y_pad][x + kx - x_pad];
             if (action == EROSION)
                 value = min(value, k_val);
             else if (action == DILATION)
@@ -377,12 +380,12 @@ extern "C" {
             err = cudaDeviceSynchronize();
             CHECK_CUDA_ERROR(err);
         }
-        else // Normal case
+        else // Normal casefilter_morph_kernel
         {
             // Device residual image
             size_t residual_img_pitch;
             std::byte* residual_img;
-            err = cudaMallocPitch(&residual_img, &residual_img_pitch, widtmp4h * sizeof(Lab), height);
+            err = cudaMallocPitch(&residual_img, &residual_img_pitch, width * sizeof(Lab), height);
             CHECK_CUDA_ERROR(err);
 
             // Compute the residual image

@@ -202,39 +202,41 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
         has_changed = false;
         __syncthreads();
 
-        if (upper_tile[y-y_pad][x-x_pad]) return;
-        if (!lower_tile[y-y_pad][x-x_pad]) return;
+        if (upper_tile[y-y_pad][x-x_pad]) break;
+        if (!lower_tile[y-y_pad][x-x_pad]) break;
 
         if (x > 0 && upper_tile[y-y_pad][x-x_pad-1]) {
-            set_strided<bool>(upper, upper_pitch, x, y, true);
+            upper_tile[y-y_pad][x-x_pad] = true;
             has_changed = true;
-            return;
+            break;
         }
 
         if (x < width-1 && upper_tile[y-y_pad][x-x_pad+1]) {
-            set_strided<bool>(upper, upper_pitch, x, y, true);
+            upper_tile[y-y_pad][x-x_pad] = true;
             has_changed = true;
-            return;
+            break;
         }
 
         if (y > 0) {
             if (upper_tile[y-y_pad-1][x-x_pad]) {
-                set_strided<bool>(upper, upper_pitch, x, y, true);
+                upper_tile[y-y_pad][x-x_pad] = true;
                 has_changed = true;
-                return;
+                break;
             }
         }
 
         if (y < height-1) {
             if (upper_tile[y-y_pad+1][x-x_pad]) {
-                set_strided<bool>(upper, upper_pitch, x, y, true);
+                upper_tile[y-y_pad][x-x_pad] = true;
                 has_changed = true;
-                return;
+                break;
             }
         }
 
         __syncthreads();
     }
+
+    set_strided<bool>(upper, upper_pitch, x, y, upper_tile[y-y_pad][x-x_pad]);
 }
 
 void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)

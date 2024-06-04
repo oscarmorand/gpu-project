@@ -168,10 +168,11 @@ __global__ void hysteresis_threshold(std::byte* img, std::byte* out, int width, 
 
 #define HYST_TILE_WIDTH 34
 
-__global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch, bool* has_changed)
+__global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width, int height, int upper_pitch, int lower_pitch)
 {
     __shared__ bool upper_tile[HYST_TILE_WIDTH][HYST_TILE_WIDTH];
     __shared__ bool lower_tile[HYST_TILE_WIDTH][HYST_TILE_WIDTH];
+    __shared__ bool has_changed;
 
     int y_pad = blockIdx.y * blockDim.y - 1;
     int x_pad = blockIdx.x * blockDim.x - 1;
@@ -188,6 +189,8 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
         }
     }
 
+    has_changed = true;
+
     __syncthreads();
 
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -195,35 +198,42 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
 
     if (x >= width || y >= height) return;
 
-    if (upper_tile[y-y_pad][x-x_pad]) return;
-    if (!lower_tile[y-y_pad][x-x_pad]) return;
+    while(has_changed) {
+        has_changed = false;
+        __syncthreads();
 
-    if (x > 0 && upper_tile[y-y_pad][x-x_pad-1]) {
-        set_strided<bool>(upper, upper_pitch, x, y, true);
-        *has_changed = true;
-        return;
-    }
+        if (upper_tile[y-y_pad][x-x_pad]) return;
+        if (!lower_tile[y-y_pad][x-x_pad]) return;
 
-    if (x < width-1 && upper_tile[y-y_pad][x-x_pad+1]) {
-        set_strided<bool>(upper, upper_pitch, x, y, true);
-        *has_changed = true;
-        return;
-    }
-
-    if (y > 0) {
-        if (upper_tile[y-y_pad-1][x-x_pad]) {
+        if (x > 0 && upper_tile[y-y_pad][x-x_pad-1]) {
             set_strided<bool>(upper, upper_pitch, x, y, true);
-            *has_changed = true;
+            has_changed = true;
             return;
         }
-    }
 
-    if (y < height-1) {
-        if (upper_tile[y-y_pad+1][x-x_pad]) {
+        if (x < width-1 && upper_tile[y-y_pad][x-x_pad+1]) {
             set_strided<bool>(upper, upper_pitch, x, y, true);
-            *has_changed = true;
+            has_changed = true;
             return;
         }
+
+        if (y > 0) {
+            if (upper_tile[y-y_pad-1][x-x_pad]) {
+                set_strided<bool>(upper, upper_pitch, x, y, true);
+                has_changed = true;
+                return;
+            }
+        }
+
+        if (y < height-1) {
+            if (upper_tile[y-y_pad+1][x-x_pad]) {
+                set_strided<bool>(upper, upper_pitch, x, y, true);
+                has_changed = true;
+                return;
+            }
+        }
+
+        __syncthreads();
     }
 }
 
@@ -245,24 +255,28 @@ void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, i
     err = cudaDeviceSynchronize();
     CHECK_CUDA_ERROR(err);
 
-    bool h_has_changed = true;
+    // bool h_has_changed = true;
 
-    bool* d_has_changed;
-    err = cudaMalloc(&d_has_changed, sizeof(bool));
+    // bool* d_has_changed;
+    // err = cudaMalloc(&d_has_changed, sizeof(bool));
+    // CHECK_CUDA_ERROR(err);
+
+    // while (h_has_changed)
+    // {
+    //     set_changed<<<1,1>>>(d_has_changed, false);
+    //     err = cudaDeviceSynchronize();
+    //     CHECK_CUDA_ERROR(err);
+
+    //     hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch, d_has_changed);
+    //     err = cudaDeviceSynchronize();
+    //     CHECK_CUDA_ERROR(err);
+
+    //     err = cudaMemcpy(&h_has_changed, d_has_changed, sizeof(bool), cudaMemcpyDeviceToHost);
+    // }
+
+    hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch);
+    err = cudaDeviceSynchronize();
     CHECK_CUDA_ERROR(err);
-
-    while (h_has_changed)
-    {
-        set_changed<<<1,1>>>(d_has_changed, false);
-        err = cudaDeviceSynchronize();
-        CHECK_CUDA_ERROR(err);
-
-        hysteresis_kernel<<<gridSize, blockSize>>>(hyst, lower_threshold_img, width, height, hyst_pitch, lower_threshold_pitch, d_has_changed);
-        err = cudaDeviceSynchronize();
-        CHECK_CUDA_ERROR(err);
-
-        err = cudaMemcpy(&h_has_changed, d_has_changed, sizeof(bool), cudaMemcpyDeviceToHost);
-    }
 
     cudaFree(lower_threshold_img);
 }

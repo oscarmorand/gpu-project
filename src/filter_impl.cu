@@ -55,28 +55,28 @@ __device__ void set_strided(std::byte* array, size_t pitch, int x, int y, T valu
 
 __device__ float f(float t)
 {
-    if (t > pow((6.0/29.0), 3.0))
+    if (t > pow(__fdiv_rn(6.0f,29.0f), 3.0f))
     {
-        return pow(t, (1.0/3.0));
+        return pow(t, __frcp_rn(3.0f));
     }
-    return (1.0/3.0)*pow(29.0/6.0, 2.0)*t+(4.0/29.0);
+    return __fmaf_rn(__frcp_rn(3.0f) * pow(__fdiv_rn(29.0f,6.0f), 2.0f), t, __fdiv_rn(4.0f, 29.0f));
 }
 
 __device__ Lab rgb_to_lab(rgb in) 
 {
-    float x = 0.4124564 * in.r + 0.3575761 * in.g + 0.1804375 * in.b;
-    float y = 0.2126729 * in.r + 0.7151522 * in.g + 0.0721750 * in.b;
-    float z = 0.0193339 * in.r + 0.1191920 * in.g + 0.9503041 * in.b;
+    float x = __fmul_rn(0.4124564f, in.r) + __fmul_rn(0.3575761f, in.g) + __fmul_rn(0.1804375f, in.b);
+    float y = __fmul_rn(0.2126729f, in.r) + __fmul_rn(0.7151522f, in.g) + __fmul_rn(0.0721750f, in.b);
+    float z = __fmul_rn(0.0193339f, in.r) + __fmul_rn(0.1191920f, in.g) + __fmul_rn(0.9503041f, in.b);
 
-    float xn = 95.0489;
-    float yn = 100.0;
-    float zn = 108.8840;
+    float xn = 95.0489f;
+    float yn = 100.0f;
+    float zn = 108.8840f;
 
-    float f_y_over_yn = f(y / yn);
+    float f_y_over_yn = f(__fdiv_rn(y, yn));
 
-    float L = 116 * f_y_over_yn - 16;
-    float a = 500 * (f(x / xn) - f_y_over_yn);
-    float b = 200 * (f_y_over_yn - f(z / zn));
+    float L = __fmaf_rn(116.0f, f_y_over_yn, - 16.0f);
+    float a = __fmul_rn(500.0f, (f(__fdiv_rn(x, xn)) - f_y_over_yn));
+    float b = __fmul_rn(200.0f, (f_y_over_yn - f(__fdiv_rn(z, zn))));
 
     return {L, a, b};
 }
@@ -123,7 +123,15 @@ __global__ void compute_residual_image(std::byte* bg_mask, std::byte* residual_i
     Lab bg_mask_pixel = get_strided<Lab>(bg_mask, bg_mask_pitch, x, y);
     Lab bg_model_pixel = get_strided<Lab>(bg_model, bg_model_pitch, x, y);
 
-    float residual_value = sqrt(pow(bg_mask_pixel.L - bg_model_pixel.L, 2.0) + pow(bg_mask_pixel.a - bg_model_pixel.a, 2.0) + pow(bg_mask_pixel.b - bg_model_pixel.b, 2.0));
+    float diff_L = __fadd_rn(bg_mask_pixel.L, -bg_model_pixel.L);
+    float diff_a = __fadd_rn(bg_mask_pixel.a, -bg_model_pixel.a);
+    float diff_b = __fadd_rn(bg_mask_pixel.b, -bg_model_pixel.b);
+
+    float square_diff_L = __fmul_rn(diff_L, diff_L);
+    float square_diff_a = __fmul_rn(diff_a, diff_a);
+    float square_diff_b = __fmul_rn(diff_b, diff_b);
+
+    float residual_value = __fsqrt_rn(__fadd_rn(square_diff_L, __fadd_rn(square_diff_a, square_diff_b)));
     
     set_strided<float>(residual_img, residual_img_pitch, x, y, residual_value);
 }

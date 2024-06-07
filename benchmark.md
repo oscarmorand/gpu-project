@@ -1,5 +1,40 @@
 # Benchmark des versions sur le trailer
 
+## Version gpu_fuse_operators
+
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstFakeSink:fakesink0: sync = false
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 96, dropped: 0, current: 190.22, average: 190.22
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 96, dropped: 0, current: 190.22, average: 190.22
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 185, dropped: 0, current: 176.12, average: 183.16
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 185, dropped: 0, current: 176.12, average: 183.16
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 269, dropped: 0, current: 166.71, average: 177.69
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 269, dropped: 0, current: 166.71, average: 177.69
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 358, dropped: 0, current: 176.57, average: 177.41
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 358, dropped: 0, current: 176.57, average: 177.41
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 446, dropped: 0, current: 175.93, average: 177.11
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 446, dropped: 0, current: 175.93, average: 177.11
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 531, dropped: 0, current: 168.14, average: 175.61
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 531, dropped: 0, current: 168.14, average: 175.61
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 616, dropped: 0, current: 169.83, average: 174.79
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 616, dropped: 0, current: 169.83, average: 174.79
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 703, dropped: 0, current: 173.61, average: 174.65
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 703, dropped: 0, current: 173.61, average: 174.65
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 789, dropped: 0, current: 171.74, average: 174.32
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 789, dropped: 0, current: 171.74, average: 174.32
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 877, dropped: 0, current: 175.85, average: 174.48
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 877, dropped: 0, current: 175.85, average: 174.48
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 966, dropped: 0, current: 176.48, average: 174.66
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 966, dropped: 0, current: 176.48, average: 174.66
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 1046, dropped: 0, current: 159.56, average: 173.40
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 1046, dropped: 0, current: 159.56, average: 173.40
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 1136, dropped: 0, current: 178.47, average: 173.79
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 1136, dropped: 0, current: 178.47, average: 173.79
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 1227, dropped: 0, current: 180.13, average: 174.25
+/GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0: last-message = rendered: 1227, dropped: 0, current: 180.13, average: 174.25
+Got EOS from element "pipeline0".
+EOS received - stopping pipeline...
+Execution ended after 0:00:07.192812108
+
 ## Last version (sans tag)
 
 /GstPipeline:pipeline0/GstFPSDisplaySink:fpsdisplaysink0/GstTextOverlay:fps-display-text-overlay: text = rendered: 64, dropped: 0, current: 127.91, average: 127.91

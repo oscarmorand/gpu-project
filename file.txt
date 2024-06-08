@@ -1,0 +1,525 @@
+Running on /home/ernest.bardon/IRGPU-2022/ACET.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Aled.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/climabouffe.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Epit’o.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/fast.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/FindTheCake.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/G_Pas_Pu.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Groupe X.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kaaris.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kadocuda.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/larbhein.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/les_ièps.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/lil_clown_studio.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Nuits Blanches .mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/NYCJ.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Pepper.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/power.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/sante_best.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/SCIA_Premium.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Sideral.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/toto.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/ACET.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Aled.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/climabouffe.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Epit’o.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/fast.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/FindTheCake.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/G_Pas_Pu.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Groupe X.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kaaris.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kadocuda.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/larbhein.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/les_ièps.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/lil_clown_studio.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Nuits Blanches .mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/NYCJ.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Pepper.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/power.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/sante_best.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/SCIA_Premium.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Sideral.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/toto.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/ACET.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Aled.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/climabouffe.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Epit’o.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/fast.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/FindTheCake.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/G_Pas_Pu.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Groupe X.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kaaris.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kadocuda.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/larbhein.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/les_ièps.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/lil_clown_studio.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Nuits Blanches .mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/NYCJ.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Pepper.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/power.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/sante_best.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/SCIA_Premium.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Sideral.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/toto.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/ACET.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Aled.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/climabouffe.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Epit’o.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/fast.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/FindTheCake.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/G_Pas_Pu.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Groupe X.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kaaris.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kadocuda.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/larbhein.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/les_ièps.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/lil_clown_studio.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Nuits Blanches .mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/NYCJ.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Pepper.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/power.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/sante_best.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/SCIA_Premium.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Sideral.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/toto.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/ACET.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Aled.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/climabouffe.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Epit’o.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/fast.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/FindTheCake.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/G_Pas_Pu.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Groupe X.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kaaris.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Kadocuda.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/larbhein.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/les_ièps.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/lil_clown_studio.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Nuits Blanches .mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/NYCJ.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Pepper.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/power.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/sante_best.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/SCIA_Premium.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/Sideral.mp4
+
+
+
+       
+Running on /home/ernest.bardon/IRGPU-2022/toto.mp4
+
+
+
+       

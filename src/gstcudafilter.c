@@ -63,8 +63,13 @@ static GstFlowReturn gst_cuda_filter_transform_frame_ip (GstVideoFilter * filter
 
 enum
 {
-  PROP_0
+  PROP_0,
+  PROP_TH_LOW,
+  PROP_TH_HIGH
 };
+
+#define DEFAULT_TH_LOW 3
+#define DEFAULT_TH_HIGH 30
 
 /* pad templates */
 
@@ -99,6 +104,17 @@ gst_cuda_filter_class_init (GstCudaFilterClass * klass)
       gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
         gst_caps_from_string (VIDEO_SINK_CAPS)));
 
+  /* define properties */
+  g_object_class_install_property (gobject_class, PROP_TH_LOW,
+    g_param_spec_int ("th-low", "Low Threshold",
+        "Low Threshold", 0, 255,
+        DEFAULT_TH_LOW, G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class, PROP_TH_HIGH,
+    g_param_spec_int ("th-high", "High Threshold",
+        "High Threshold", 0, 255,
+        DEFAULT_TH_HIGH, G_PARAM_READWRITE));
+
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
       "FIXME Long name", "Generic", "FIXME Description",
       "FIXME <fixme@example.com>");
@@ -129,6 +145,14 @@ gst_cuda_filter_set_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (cudafilter, "set_property");
 
   switch (property_id) {
+    case PROP_TH_LOW:
+      cudafilter->th_low = g_value_get_int (value);
+      g_print ("Setting low threshold to %d\n", cudafilter->th_low);
+      break;
+    case PROP_TH_HIGH:
+      cudafilter->th_high = g_value_get_int (value);
+      g_print ("Setting high threshold to %d\n", g_value_get_int (value));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -144,6 +168,12 @@ gst_cuda_filter_get_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (cudafilter, "get_property");
 
   switch (property_id) {
+    case PROP_TH_LOW:
+      g_value_set_int (value, cudafilter->th_low);
+      break;
+    case PROP_TH_HIGH:
+      g_value_set_int (value, cudafilter->th_high);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;

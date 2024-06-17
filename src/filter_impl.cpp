@@ -258,7 +258,7 @@ extern "C" {
         }
     }
 
-    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride, int th_low, int th_high)
+    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride, int th_low, int th_high, int opening_size)
     {
         Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
 

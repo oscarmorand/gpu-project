@@ -39,6 +39,7 @@ struct _GstCudaFilter
   GstVideoFilter base_cudafilter;
   int th_low;
   int th_high;
+  int opening_size;
 };
 
 struct _GstCudaFilterClass

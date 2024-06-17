@@ -65,7 +65,8 @@ enum
 {
   PROP_0,
   PROP_TH_LOW,
-  PROP_TH_HIGH
+  PROP_TH_HIGH,
+  PROP_OPENING_SIZE
 };
 
 #define DEFAULT_TH_LOW 4
@@ -119,6 +120,11 @@ gst_cuda_filter_class_init (GstCudaFilterClass * klass)
         "th_high", 0, 255,
         DEFAULT_TH_HIGH, G_PARAM_READWRITE));
 
+  g_object_class_install_property (gobject_class, PROP_OPENING_SIZE,
+    g_param_spec_int ("opening_size", "opening_size",
+        "opening_size", 3, 7,
+        DEFAULT_OPENING_SIZE, G_PARAM_READWRITE));
+
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
       "FIXME Long name", "Generic", "FIXME Description",
       "FIXME <fixme@example.com>");
@@ -138,6 +144,7 @@ gst_cuda_filter_init (GstCudaFilter *cudafilter)
 {
   cudafilter->th_low=DEFAULT_TH_LOW;
   cudafilter->th_high=DEFAULT_TH_HIGH;
+  cudafilter->opening_size=DEFAULT_OPENING_SIZE;
 }
 
 void
@@ -156,6 +163,16 @@ gst_cuda_filter_set_property (GObject * object, guint property_id,
     case PROP_TH_HIGH:
       cudafilter->th_high = g_value_get_int (value);
       g_print ("Setting high threshold to %d\n", g_value_get_int (value));
+      break;
+    case PROP_OPENING_SIZE:
+      int opening_size = g_value_get_int (value);
+      if (opening_size == 3 || opening_size == 5 || opening_size == 7) {
+        g_print ("Setting opening size to %d\n", g_value_get_int (value));
+        cudafilter->opening_size = opening_size;
+      } else {
+        cudafilter->opening_size = 3;
+        g_print ("Invalid opening size %d, must be 3, 5 or 7, it will be replaced by the default value 3.\n", opening_size);
+      }
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -177,6 +194,9 @@ gst_cuda_filter_get_property (GObject * object, guint property_id,
       break;
     case PROP_TH_HIGH:
       g_value_set_int (value, cudafilter->th_high);
+      break;
+    case PROP_OPENING_SIZE:
+      g_value_set_int (value, cudafilter->opening_size);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -273,7 +293,7 @@ gst_cuda_filter_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame * fra
   // g_print ("Have low threshold to %d\n", th_low);
   // g_print ("Have high threshold to %d\n", th_high);
 
-  filter_impl(pixels, width, height, plane_stride, pixel_stride, cudafilter->th_low, cudafilter->th_high);
+  filter_impl(pixels, width, height, plane_stride, pixel_stride, cudafilter->th_low, cudafilter->th_high, cudafilter->opening_size);
 
   return GST_FLOW_OK;
 }

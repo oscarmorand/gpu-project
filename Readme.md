@@ -25,7 +25,7 @@ ln -s ./build/libgstcudafilter-cu.so libgstcudafilter.so
 
 gst-launch-1.0 uridecodebin uri=file://$(pwd)/sintel_trailer-480p.webm ! videoconvert ! "video/x-raw, format=(string)RGB" ! cudafilter ! videoconvert ! video/x-raw, format=I420 ! x264enc ! mp4mux ! filesink location=video.mp4 #5
 
-gst-launch-1.0 uridecodebin uri=file://$(pwd)/subject/camera.mp4 ! videoconvert ! "video/x-raw, format=(string)RGB" ! cudafilter ! videoconvert ! video/x-raw, format=I420 ! x264enc ! mp4mux ! filesink location=video.mp4
+gst-launch-1.0 uridecodebin uri=file://$(pwd)/subject/camera.mp4 ! videoconvert ! "video/x-raw, format=(string)RGB" ! cudafilter th_low=4 th_high=30 ! videoconvert ! video/x-raw, format=I420 ! x264enc ! mp4mux ! filesink location=video.mp4
 ```
 
 ## Code

@@ -51,11 +51,11 @@ extern "C" {
 
     float f(float t)
     {
-        if (t > pow((6.0/29.0), 3.0))
+        if (t > pow((6.0 / 29.0), 3.0))
         {
-            return pow(t, (1.0/3.0));
+            return pow(t, (1.0 / 3.0));
         }
-        return (1.0/3.0)*pow(29.0/6.0, 2.0)*t+(4.0/29.0);
+        return (1.0 / 3.0)*pow(29.0 / 6.0, 2.0)*t+(4.0 / 29.0);
     }
 
     Lab rgb_to_lab(rgb in) {
@@ -258,7 +258,7 @@ extern "C" {
         }
     }
 
-    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride)
+    void filter_impl(uint8_t* buffer, int width, int height, int stride, int pixel_stride, int th_low, int th_high)
     {
         Lab* bg_mask = (Lab*) malloc(sizeof(Lab) * height * width);
 

@@ -63,8 +63,14 @@ static GstFlowReturn gst_cuda_filter_transform_frame_ip (GstVideoFilter * filter
 
 enum
 {
-  PROP_0
+  PROP_0,
+  PROP_TH_LOW,
+  PROP_TH_HIGH
 };
+
+#define DEFAULT_TH_LOW 4
+#define DEFAULT_TH_HIGH 30
+#define DEFAULT_OPENING_SIZE 3
 
 /* pad templates */
 
@@ -98,13 +104,25 @@ gst_cuda_filter_class_init (GstCudaFilterClass * klass)
   gst_element_class_add_pad_template (GST_ELEMENT_CLASS(klass),
       gst_pad_template_new ("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
         gst_caps_from_string (VIDEO_SINK_CAPS)));
+  
+  gobject_class->set_property = gst_cuda_filter_set_property;
+  gobject_class->get_property = gst_cuda_filter_get_property;
+
+  /* define properties */
+  g_object_class_install_property (gobject_class, PROP_TH_LOW,
+    g_param_spec_int ("th_low", "th_low",
+        "th_low", 0, 255,
+        DEFAULT_TH_LOW, G_PARAM_READWRITE));
+
+  g_object_class_install_property (gobject_class, PROP_TH_HIGH,
+    g_param_spec_int ("th_high", "th_high",
+        "th_high", 0, 255,
+        DEFAULT_TH_HIGH, G_PARAM_READWRITE));
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
       "FIXME Long name", "Generic", "FIXME Description",
       "FIXME <fixme@example.com>");
 
-  gobject_class->set_property = gst_cuda_filter_set_property;
-  gobject_class->get_property = gst_cuda_filter_get_property;
   gobject_class->dispose = gst_cuda_filter_dispose;
   gobject_class->finalize = gst_cuda_filter_finalize;
   base_transform_class->start = GST_DEBUG_FUNCPTR (gst_cuda_filter_start);
@@ -118,6 +136,8 @@ gst_cuda_filter_class_init (GstCudaFilterClass * klass)
 static void
 gst_cuda_filter_init (GstCudaFilter *cudafilter)
 {
+  cudafilter->th_low=DEFAULT_TH_LOW;
+  cudafilter->th_high=DEFAULT_TH_HIGH;
 }
 
 void
@@ -129,6 +149,14 @@ gst_cuda_filter_set_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (cudafilter, "set_property");
 
   switch (property_id) {
+    case PROP_TH_LOW:
+      cudafilter->th_low = g_value_get_int (value);
+      g_print ("Setting low threshold to %d\n", cudafilter->th_low);
+      break;
+    case PROP_TH_HIGH:
+      cudafilter->th_high = g_value_get_int (value);
+      g_print ("Setting high threshold to %d\n", g_value_get_int (value));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -144,6 +172,12 @@ gst_cuda_filter_get_property (GObject * object, guint property_id,
   GST_DEBUG_OBJECT (cudafilter, "get_property");
 
   switch (property_id) {
+    case PROP_TH_LOW:
+      g_value_set_int (value, cudafilter->th_low);
+      break;
+    case PROP_TH_HIGH:
+      g_value_set_int (value, cudafilter->th_high);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -236,9 +270,10 @@ gst_cuda_filter_transform_frame_ip (GstVideoFilter * filter, GstVideoFrame * fra
   int plane_stride = GST_VIDEO_FRAME_PLANE_STRIDE(frame, 0);
   int pixel_stride = GST_VIDEO_FRAME_COMP_PSTRIDE(frame, 0);
 
-  filter_impl(pixels, width, height, plane_stride, pixel_stride);
+  // g_print ("Have low threshold to %d\n", th_low);
+  // g_print ("Have high threshold to %d\n", th_high);
 
-
+  filter_impl(pixels, width, height, plane_stride, pixel_stride, cudafilter->th_low, cudafilter->th_high);
 
   return GST_FLOW_OK;
 }
@@ -275,4 +310,3 @@ GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     cudafilter,
     "FIXME plugin description",
     plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
-

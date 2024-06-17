@@ -37,7 +37,8 @@ typedef struct _GstCudaFilterClass GstCudaFilterClass;
 struct _GstCudaFilter
 {
   GstVideoFilter base_cudafilter;
-
+  int th_low;
+  int th_high;
 };
 
 struct _GstCudaFilterClass

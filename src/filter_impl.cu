@@ -251,7 +251,7 @@ __global__ void hysteresis_kernel(std::byte* upper, std::byte* lower, int width,
     set_strided<bool>(upper, upper_pitch, x, y, upper_tile[y-y_pad][x-x_pad]);
 }
 
-void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch)
+void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, int opened_img_pitch, int hyst_pitch, int th_low, int th_high)
 {
     cudaError_t err;
     dim3 blockSize(32,32);
@@ -263,9 +263,9 @@ void hysteresis(std::byte* opened_img, std::byte* hyst, int width, int height, i
     CHECK_CUDA_ERROR(err);
 
     // Lower threshold
-    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, lower_threshold_img, width, height, opened_img_pitch, lower_threshold_pitch, 4.0);
+    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, lower_threshold_img, width, height, opened_img_pitch, lower_threshold_pitch, th_low);
     // Upper threshold
-    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch, 30.0);
+    hysteresis_threshold<<<gridSize, blockSize>>>(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch, th_high);
     err = cudaDeviceSynchronize();
     CHECK_CUDA_ERROR(err);
 
@@ -365,7 +365,7 @@ __global__ void filter_morph_kernel(morph_op action, std::byte* img, std::byte* 
 
 
 extern "C" {
-    void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride)
+    void filter_impl(uint8_t* src_buffer, int width, int height, int src_stride, int pixel_stride, int th_low, int th_high)
     {
         assert(sizeof(rgb) == pixel_stride);
         cudaError_t err;
@@ -448,7 +448,7 @@ extern "C" {
             std::byte* hyst;
             err = cudaMallocPitch(&hyst, &hyst_pitch, width * sizeof(bool), height);
             CHECK_CUDA_ERROR(err);
-            hysteresis(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch);
+            hysteresis(opened_img, hyst, width, height, opened_img_pitch, hyst_pitch, th_low, th_high);
             cudaFree(opened_img);
 
             // Save the mask
